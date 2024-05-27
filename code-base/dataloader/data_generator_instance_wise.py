@@ -44,10 +44,13 @@ class ToTensor(object):
 
     def __call__(self, sample):
         # convert GBR images to RGB
-        image, alpha, trimap, mask = sample['image'][:, :, ::-1], sample['alpha'], sample['trimap'], sample['mask']
+        image, alpha, trimap, mask, alpha2 = sample['image'][:, :, ::-1], sample['alpha'], sample['trimap'], sample['mask'], sample["another_alpha"]
 
         alpha[alpha < 0] = 0
         alpha[alpha > 1] = 1
+
+        alpha2[alpha2 < 0] = 0
+        alpha2[alpha2 > 1] = 1
 
         if self.phase == 'train' and self.RWA is not None and np.random.rand() < 0.5:
             image[image > 255] = 255
@@ -62,6 +65,7 @@ class ToTensor(object):
         # torch image: C X H X W
         image = image.transpose((2, 0, 1)).astype(np.float32)
         alpha = np.expand_dims(alpha.astype(np.float32), axis=0)
+        alpha2 = np.expand_dims(alpha2.astype(np.float32), axis=0)
         trimap[trimap < 85] = 0
         trimap[trimap >= 170] = 2
         trimap[trimap >= 85] = 1
@@ -75,12 +79,15 @@ class ToTensor(object):
             # convert GBR images to RGB
             fg = sample['fg'][:, :, ::-1].transpose((2, 0, 1)).astype(np.float32) / 255.
             sample['fg'] = torch.from_numpy(fg).sub_(self.mean).div_(self.std)
+            fg2 = sample['another_fg'][:, :, ::-1].transpose((2, 0, 1)).astype(np.float32) / 255.
+            sample['another_fg'] = torch.from_numpy(fg2).sub_(self.mean).div_(self.std)
             bg = sample['bg'][:, :, ::-1].transpose((2, 0, 1)).astype(np.float32) / 255.
             sample['bg'] = torch.from_numpy(bg).sub_(self.mean).div_(self.std)
             # del sample['image_name']
 
         sample['image'], sample['alpha'], sample['trimap'] = \
             torch.from_numpy(image), torch.from_numpy(alpha), torch.from_numpy(trimap).to(torch.long)
+        sample['another_alpha'] = torch.from_numpy(alpha2)
         sample['image'] = sample['image'].sub_(self.mean).div_(self.std)
 
         if CONFIG.model.trimap_channel == 3:
@@ -311,9 +318,13 @@ class RandomCrop(object):
     def __call__(self, sample):
         fg, alpha, trimap, mask, name = sample['fg'], sample['alpha'], sample['trimap'], sample['mask'], sample[
             'image_name']
+        fg2, alpha2 = sample['another_fg'], sample['another_alpha']
         bg = sample['bg']
         h, w = trimap.shape
         bg = cv2.resize(bg, (w, h), interpolation=maybe_random_interp(cv2.INTER_CUBIC))
+        fg2 = cv2.resize(fg2, (w, h), interpolation=maybe_random_interp(cv2.INTER_NEAREST))
+        alpha2 = cv2.resize(alpha2, (w, h), interpolation=maybe_random_interp(cv2.INTER_NEAREST))
+
         if w < self.output_size[0] + 1 or h < self.output_size[1] + 1:
             ratio = 1.1 * self.output_size[0] / h if h < w else 1.1 * self.output_size[1] / w
             # self.logger.warning("Size of {} is {}.".format(name, (h, w)))
@@ -325,6 +336,10 @@ class RandomCrop(object):
                 trimap = cv2.resize(trimap, (int(w * ratio), int(h * ratio)), interpolation=cv2.INTER_NEAREST)
                 bg = cv2.resize(bg, (int(w * ratio), int(h * ratio)),
                                 interpolation=maybe_random_interp(cv2.INTER_CUBIC))
+                alpha2 = cv2.resize(alpha2, (int(w * ratio), int(h * ratio)),
+                                    interpolation=maybe_random_interp(cv2.INTER_NEAREST))
+                fg2 = cv2.resize(fg2, (int(w * ratio), int(h * ratio)),
+                                 interpolation=maybe_random_interp(cv2.INTER_NEAREST))
                 mask = cv2.resize(mask, (int(w * ratio), int(h * ratio)), interpolation=cv2.INTER_NEAREST)
                 h, w = trimap.shape
         small_trimap = cv2.resize(trimap, (w // 4, h // 4), interpolation=cv2.INTER_NEAREST)
@@ -339,8 +354,12 @@ class RandomCrop(object):
             left_top = (unknown_list[idx][0] * 4, unknown_list[idx][1] * 4)
 
         fg_crop = fg[left_top[0]:left_top[0] + self.output_size[0], left_top[1]:left_top[1] + self.output_size[1], :]
+        fg2_crop = fg2[left_top[0]:left_top[0] + self.output_size[0], left_top[1]:left_top[1] + self.output_size[1], :]
         alpha_crop = alpha[left_top[0]:left_top[0] + self.output_size[0], left_top[1]:left_top[1] + self.output_size[1]]
+        alpha2_crop = alpha2[left_top[0]: left_top[0] + self.output_size[0],
+                      left_top[1]: left_top[1] + self.output_size[1]]
         bg_crop = bg[left_top[0]:left_top[0] + self.output_size[0], left_top[1]:left_top[1] + self.output_size[1], :]
+
         trimap_crop = trimap[left_top[0]:left_top[0] + self.output_size[0],
                       left_top[1]:left_top[1] + self.output_size[1]]
         mask_crop = mask[left_top[0]:left_top[0] + self.output_size[0], left_top[1]:left_top[1] + self.output_size[1]]
@@ -350,11 +369,21 @@ class RandomCrop(object):
                               "left_top: {}".format(name, left_top))
             fg_crop = cv2.resize(fg, self.output_size[::-1], interpolation=maybe_random_interp(cv2.INTER_NEAREST))
             alpha_crop = cv2.resize(alpha, self.output_size[::-1], interpolation=maybe_random_interp(cv2.INTER_NEAREST))
+            alpha2_crop = cv2.resize(alpha2, self.output_size[::-1],
+                                     interpolation=maybe_random_interp(cv2.INTER_NEAREST))
+            fg2_crop = cv2.resize(fg2, self.output_size[::-1], interpolation=maybe_random_interp(cv2.INTER_NEAREST))
             trimap_crop = cv2.resize(trimap, self.output_size[::-1], interpolation=cv2.INTER_NEAREST)
             bg_crop = cv2.resize(bg, self.output_size[::-1], interpolation=maybe_random_interp(cv2.INTER_CUBIC))
             mask_crop = cv2.resize(mask, self.output_size[::-1], interpolation=cv2.INTER_NEAREST)
 
-        sample.update({'fg': fg_crop, 'alpha': alpha_crop, 'trimap': trimap_crop, 'mask': mask_crop, 'bg': bg_crop})
+        sample.update({'fg': fg_crop,
+                       'alpha': alpha_crop,
+                       'trimap': trimap_crop,
+                       'mask': mask_crop,
+                       'bg': bg_crop,
+                       'another_fg': fg2_crop,
+                       'another_alpha': alpha2_crop
+                       })
         return sample
 
 
@@ -435,22 +464,53 @@ class GenMask(object):
 
 class Composite(object):
 
-    def __init__(self, use_instance_wise):
-        self.use_instance_wise = use_instance_wise
-
     def __call__(self, sample):
-        if self.use_instance_wise:
-            return sample
-        fg, bg, alpha = sample['fg'], sample['bg'], sample['alpha']
+        fg, bg, alpha, alpha2, fg2, random_number = sample['fg'], sample['bg'], sample['alpha'], sample[
+            'another_alpha'], sample['another_fg'], sample['ramdom_number']
         alpha[alpha < 0] = 0
         alpha[alpha > 1] = 1
+        alpha2[alpha2 < 0] = 0
+        alpha2[alpha2 > 1] = 1
         fg[fg < 0] = 0
         fg[fg > 255] = 255
+        fg2[fg2 < 0] = 0
+        fg2[fg2 > 255] = 255
         bg[bg < 0] = 0
         bg[bg > 255] = 255
 
-        image = fg * alpha[:, :, None] + bg * (1 - alpha[:, :, None])
+        if random_number == 0:
+            new_bg = fg2 * alpha2[:, :, None] + bg * (1 - alpha2[:, :, None])
+            image = fg * alpha[:, :, None] + new_bg * (1 - alpha[:, :, None])
+        else:
+            new_bg = fg * alpha[:, :, None] + bg * (1 - alpha[:, :, None])
+            image = fg2 * alpha2[:, :, None] + new_bg * (1 - alpha2[:, :, None])
+
         sample['image'] = image
+        return sample
+
+
+class SaveImg(object):
+
+    def __call__(self, sample):
+        image_name = sample["image_name"]
+        ramdom_number = sample["ramdom_number"]
+        fg = sample['fg']
+        alpha = sample['alpha']
+        fg2 = sample['another_fg']
+        alpha2 = sample['another_alpha']
+        bg = sample['bg']
+        image = sample['image']
+        mask = sample['mask']
+        trimap = sample['trimap']
+        print(f"image name: {image_name} ramdom_number:{ramdom_number}")
+        cv2.imwrite("temp/bg.png", bg)
+        cv2.imwrite("temp/alpha1.png", (alpha * 255).astype(np.uint8))
+        cv2.imwrite("temp/alpha2.png", (alpha2 * 255).astype(np.uint8))
+        cv2.imwrite("temp/fg.png", fg)
+        cv2.imwrite("temp/fg2.png", fg2)
+        cv2.imwrite("temp/image.png", image)
+        cv2.imwrite("temp/trimap.png", trimap)
+        cv2.imwrite("temp/mask.png", (mask * 255).astype(np.uint8))
         return sample
 
 
@@ -474,7 +534,7 @@ class CutMask(object):
         return sample
 
 
-class DataGenerator(Dataset):
+class DataGenerator_Instance_Wise(Dataset):
     def __init__(self, data, phase="train"):
         self.phase = phase
         self.crop_size = CONFIG.data.crop_size
@@ -492,7 +552,7 @@ class DataGenerator(Dataset):
             self.trimap = data.trimap
 
         train_trans = [
-            # 对原图进行随机变换
+            # 对alpha和fg进行旋转，位移动操作
             RandomAffine(degrees=30, scale=[0.8, 1.25], shear=10, flip=0.5),
             # 生成mask
             GenMask(),
@@ -503,7 +563,9 @@ class DataGenerator(Dataset):
             # 增加噪音
             RandomJitter(),
             # 合成原图
-            Composite(CONFIG.train.use_instance_wise),
+            Composite(),
+            # save
+            # SaveImg(),
             ToTensor(phase="train", real_world_aug=CONFIG.data.real_world_aug)]
 
         test_trans = [OriginScale(), ToTensor()]
@@ -524,6 +586,7 @@ class DataGenerator(Dataset):
 
     def __getitem__(self, idx):
         if self.phase == "train":
+            bg = cv2.imread(self.bg[idx], 1)
             fg_path = self.fg[idx % self.fg_num]
             fg = cv2.imread(fg_path)
             alpha = cv2.imread(self.alpha[idx % self.fg_num], 0).astype(np.float32) / 255
@@ -532,19 +595,30 @@ class DataGenerator(Dataset):
             fg2_path = self.fg[idx2 % self.fg_num]
             fg2 = cv2.imread(fg2_path)
             alpha2 = cv2.imread(self.alpha[idx2 % self.fg_num], 0).astype(np.float32) / 255.
+            image_name = os.path.split(self.fg[idx % self.fg_num])[-1]
 
             ramdom_number = np.random.randint(2)
-            select_index = 0 if ramdom_number == 0 else 1
+            if ramdom_number == 1:
+                # 替换fg
+                temp_fg = fg
+                fg = fg2
+                fg2 = temp_fg
 
-            # 背景
-            bg = cv2.imread(self.bg[idx], 1)
+                # 替换alpha
+                temp_alpha = alpha
+                alpha = alpha2
+                alpha2 = temp_alpha
 
-            if self.use_instance_wise:
-                fg, alpha = self._composite_fg(fg, alpha, idx)
-            else:
-                fg, alpha = self._composite_fg(fg, alpha, idx)
-            image_name = os.path.split(self.fg[idx % self.fg_num])[-1]
-            sample = {'fg': fg, 'alpha': alpha, 'bg': bg, 'image_name': image_name}
+                # 修改目标image name
+                image_name = os.path.split(self.fg[idx2 % self.fg_num])[-1]
+
+            sample = {'fg': fg,
+                      'alpha': alpha,
+                      'bg': bg,
+                      'another_fg': fg2,
+                      'another_alpha': alpha2,
+                      'image_name': image_name,
+                      'ramdom_number': ramdom_number}
 
         else:
             image = cv2.imread(self.merged[idx])

@@ -53,6 +53,12 @@ CONFIG.data.crop_size = 512
 CONFIG.data.real_world_aug = False
 CONFIG.data.augmentation = True
 CONFIG.data.random_interp = True
+CONFIG.data.train_alpha_ext = None
+CONFIG.data.train_fg_ext = None
+CONFIG.data.train_bg_ext = None
+CONFIG.data.test_alpha_ext = None
+CONFIG.data.test_merged_ext = None
+CONFIG.data.test_triamp_ext = None
 
 
 # Training config
@@ -75,6 +81,7 @@ CONFIG.train.clip_grad = True
 CONFIG.train.resume_checkpoint = None
 # reset the learning rate (this option will reset the optimizer and learning rate scheduler and ignore warmup)
 CONFIG.train.reset_lr = False
+CONFIG.train.use_instance_wise = False
 
 
 # Logging config

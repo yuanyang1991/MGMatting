@@ -4,9 +4,8 @@ import torch
 
 import networks
 import utils
-from dataloader.data_generator import DataGenerator
+from dataloader.data_generator_instance_wise import DataGenerator
 from dataloader.image_file import ImageFileTrain
-from infer import single_inference, generator_tensor_dict2
 
 path_alpha = "C:/Users/a/dataset/matting/aim_500/mask"
 path_original = "C:/Users/a/dataset/matting/aim_500/original"
@@ -114,14 +113,18 @@ def test_infer(image, mask):
     # single_inference(model, image_dict)
 
 
+def test_data_generator2():
+    train_image_file = ImageFileTrain(alpha_dir="data/Training_set/Adobe_licensed_images/alpha_copy",
+                                      fg_dir="data/Training_set/Adobe_licensed_images/fg_copy",
+                                      bg_dir="C:/Users/a/dataset/matting/train2017",
+                                      alpha_ext=".jpg",
+                                      fg_ext=".jpg",
+                                      bg_ext=".jpg")
+
+    train_dataset = DataGenerator(train_image_file, phase='train')
+    train_dataset.__getitem__(1)
+
+
+
 if __name__ == "__main__":
-    # test_imagefiletrain(path_original, path_alpha, path_bg)
-    image = "C:/Users/a/dataset/matting/aim_500/original/o_0a0ae43d.jpg"
-    mask = "C:/Users/a/dataset/matting/aim_500/trimap/o_0a0ae43d.png"
-    # test_infer(image, mask)
-    test_composite_wild(fg1_path="C:/Users/a/dataset/matting/am_2k/train/fg/m_00b28969.png",
-                        fg2_path="C:/Users/a/dataset/matting/am_2k/train/fg/m_00bc1c49.png",
-                        alpha1_path="C:/Users/a/dataset/matting/am_2k/train/mask/m_00b28969.png",
-                        alpha2_path="C:/Users/a/dataset/matting/am_2k/train/mask/m_00bc1c49.png",
-                        bg_path="C:/Users/a/dataset/matting/Distinctions-646/Test/bg/VOCdevkit/VOC2012/JPEGImages/2007_000032.jpg"
-                        )
+    test_data_generator2()

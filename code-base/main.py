@@ -1,17 +1,42 @@
-import os
-import toml
 import argparse
+import os
 from pprint import pprint
 
+import toml
 import torch
 from torch.utils.data import DataLoader
 
 import utils
-from utils import CONFIG
-from trainer import Trainer
-from dataloader.image_file import ImageFileTrain, ImageFileTest
 from dataloader.data_generator import DataGenerator
+from dataloader.data_generator_instance_wise import DataGenerator_Instance_Wise
+from dataloader.image_file import ImageFileTrain, ImageFileTest
 from dataloader.prefetcher import Prefetcher
+from trainer import Trainer
+from trainer_instance_wise import Trainer_Instance_Wise
+from utils import CONFIG
+
+
+def get_trainer(train_dataloader, test_dataloader, logger, tb_logger):
+    if CONFIG.train.use_instance_wise:
+        return Trainer_Instance_Wise(
+            train_dataloader=train_dataloader,
+            test_dataloader=test_dataloader,
+            logger=logger,
+            tb_logger=tb_logger)
+    else:
+        return Trainer(
+            train_dataloader=train_dataloader,
+            test_dataloader=test_dataloader,
+            logger=logger,
+            tb_logger=tb_logger)
+
+
+def get_train_data_generator(train_image_file):
+    if CONFIG.train.use_instance_wise:
+        return DataGenerator_Instance_Wise(train_image_file,
+                                           phase='train')
+    else:
+        return DataGenerator(train_image_file, phase='train')
 
 
 def main():
@@ -48,7 +73,7 @@ def main():
                                         trimap_ext=CONFIG.data.test_triamp_ext
                                         )
 
-        train_dataset = DataGenerator(train_image_file, phase='train')
+        train_dataset = get_train_data_generator(train_image_file)
         test_dataset = DataGenerator(test_image_file, phase='val')
 
         if CONFIG.dist:
@@ -73,10 +98,7 @@ def main():
                                      sampler=test_sampler,
                                      drop_last=False)
 
-        trainer = Trainer(train_dataloader=train_dataloader,
-                          test_dataloader=test_dataloader,
-                          logger=logger,
-                          tb_logger=tb_logger)
+        trainer = get_trainer(train_dataloader, test_dataloader, logger, tb_logger)
         trainer.train()
     else:
         raise NotImplementedError("Unknown Phase: {}".format(CONFIG.phase))

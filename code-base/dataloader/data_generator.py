@@ -22,6 +22,30 @@ def maybe_random_interp(cv2_interp):
     else:
         return cv2_interp
 
+class SaveImg(object):
+
+    def __call__(self, sample):
+        image_name = sample["image_name"]
+        #ramdom_number = sample["ramdom_number"]
+        fg = sample['fg']
+        alpha = sample['alpha']
+        #fg2 = sample['another_fg']
+        #alpha2 = sample['another_alpha']
+        bg = sample['bg']
+        image = sample['image']
+        mask = sample['mask']
+        trimap = sample['trimap']
+        #print(f"image name: {image_name} ramdom_number:{ramdom_number}")
+        cv2.imwrite("temp/bg.png", bg)
+        cv2.imwrite("temp/alpha1.png", (alpha * 255).astype(np.uint8))
+        #cv2.imwrite("temp/alpha2.png", (alpha2 * 255).astype(np.uint8))
+        cv2.imwrite("temp/fg.png", fg)
+        #cv2.imwrite("temp/fg2.png", fg2)
+        cv2.imwrite("temp/image.png", image)
+        cv2.imwrite("temp/trimap.png", trimap)
+        cv2.imwrite("temp/mask.png", (mask * 255).astype(np.uint8))
+        return sample
+
 class ToTensor(object):
     """
     Convert ndarrays in sample to Tensors with normalization.
@@ -478,6 +502,7 @@ class DataGenerator(Dataset):
             RandomCrop((self.crop_size, self.crop_size)),
             RandomJitter(),
             Composite(),
+            #SaveImg(),
             ToTensor(phase="train", real_world_aug=CONFIG.data.real_world_aug) ]
 
         test_trans = [ OriginScale(), ToTensor() ]
