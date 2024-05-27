@@ -1,28 +1,27 @@
 import os
 import toml
 import argparse
-from   pprint import pprint
+from pprint import pprint
 
 import torch
-from   torch.utils.data import DataLoader
+from torch.utils.data import DataLoader
 
 import utils
-from   utils import CONFIG
-from   trainer import Trainer
-from   dataloader.image_file import ImageFileTrain, ImageFileTest
-from   dataloader.data_generator import DataGenerator
-from   dataloader.prefetcher import Prefetcher
+from utils import CONFIG
+from trainer import Trainer
+from dataloader.image_file import ImageFileTrain, ImageFileTest
+from dataloader.data_generator import DataGenerator
+from dataloader.prefetcher import Prefetcher
 
 
 def main():
-
     # Train or Test
     if CONFIG.phase.lower() == "train":
         # set distributed training
         if CONFIG.dist:
             CONFIG.gpu = CONFIG.local_rank
             torch.cuda.set_device(CONFIG.gpu)
-            torch.distributed.init_process_group(backend='nccl', init_method='env://')
+            torch.distributed.init_process_group(backend='gloo', init_method='env://')
             CONFIG.world_size = torch.distributed.get_world_size()
 
         # Create directories if not exist.
@@ -36,10 +35,18 @@ def main():
                                              logging_level=CONFIG.log.logging_level)
         train_image_file = ImageFileTrain(alpha_dir=CONFIG.data.train_alpha,
                                           fg_dir=CONFIG.data.train_fg,
-                                          bg_dir=CONFIG.data.train_bg)
+                                          bg_dir=CONFIG.data.train_bg,
+                                          alpha_ext=CONFIG.data.train_alpha_ext,
+                                          fg_ext=CONFIG.data.train_fg_ext,
+                                          bg_ext=CONFIG.data.train_bg_ext
+                                          )
         test_image_file = ImageFileTest(alpha_dir=CONFIG.data.test_alpha,
                                         merged_dir=CONFIG.data.test_merged,
-                                        trimap_dir=CONFIG.data.test_trimap)
+                                        trimap_dir=CONFIG.data.test_trimap,
+                                        alpha_ext=CONFIG.data.test_alpha_ext,
+                                        merged_ext=CONFIG.data.test_merged_ext,
+                                        trimap_ext=CONFIG.data.test_triamp_ext
+                                        )
 
         train_dataset = DataGenerator(train_image_file, phase='train')
         test_dataset = DataGenerator(test_image_file, phase='val')
@@ -77,10 +84,13 @@ def main():
 
 if __name__ == '__main__':
     print('Torch Version: ', torch.__version__)
-
+    os.environ['RANK'] = '0'  # 根据实际进程修改
+    os.environ['WORLD_SIZE'] = '1'
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
     parser = argparse.ArgumentParser()
     parser.add_argument('--phase', type=str, default='train')
-    parser.add_argument('--config', type=str, default='config/gca-dist.toml')
+    parser.add_argument('--config', type=str, default='config/train.toml')
     parser.add_argument('--local_rank', type=int, default=0)
 
     # Parse configuration

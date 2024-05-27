@@ -310,13 +310,13 @@ class Trainer(object):
                             weight_os4 = utils.get_unknown_tensor_from_pred(alpha_pred, rand_width=CONFIG.model.self_refine_width1, train_mode=False)
                             alpha_pred[weight_os4>0] = alpha_pred_os4[weight_os4>0]
                             weight_os1 = utils.get_unknown_tensor_from_pred(alpha_pred, rand_width=CONFIG.model.self_refine_width2, train_mode=False)
-                            alpha_pred[weight_os1>0] = alpha_pred_os1[weight_os1>0] 
-                            
+                            alpha_pred[weight_os1>0] = alpha_pred_os1[weight_os1>0]
+
 
                             h, w = alpha_shape
                             alpha_pred = alpha_pred[..., :h, :w]
                             trimap = trimap[..., :h, :w]
-                            
+
                             weight = utils.get_unknown_tensor(trimap)
                             weight[...] = 1
 
@@ -357,8 +357,7 @@ class Trainer(object):
                                 'mask': (mask[-1, ...].data.cpu().numpy() * 255).astype(np.uint8),
                                 'alpha': (alpha[-1, ...].data.cpu().numpy() * 255).astype(np.uint8),
                                 'alpha_pred': (alpha_pred[-1, ...].data.cpu().numpy() * 255).astype(np.uint8)}
-
-                self.tb_logger.image_summary(image_set, step, phase='test')
+                    self.tb_logger.image_summary(image_set, step, phase='test')
 
                 """===== Save Model ====="""
                 if (step % self.log_config.checkpoint_step == 0 or step == self.train_config.total_step) \
@@ -374,7 +373,7 @@ class Trainer(object):
                         and CONFIG.local_rank == 0 and (step > start):
                     self.logger.info('Saving the trained models from step {}...'.format(iter))
                     self.save_model("latest_model", step, loss)
-            
+
             torch.cuda.empty_cache()
 
 
@@ -467,10 +466,10 @@ class Trainer(object):
             x = F.pad(x, (2,2,2,2), mode='reflect')
             x = F.conv2d(x, kernel, groups=x.shape[1])
             return x
-        
+
         def downsample(x):
             return x[:, :, ::2, ::2]
-        
+
         def upsample(x, kernel):
             N, C, H, W = x.shape
             cc = torch.cat([x, torch.zeros(N,C,H,W).cuda()], dim = 3)
@@ -491,7 +490,7 @@ class Trainer(object):
                 pyr.append(diff)
                 current = down
             return pyr
-        
+
         def weight_pyramid(x, max_levels=3):
             current = x
             pyr = []
@@ -500,7 +499,7 @@ class Trainer(object):
                 pyr.append(current)
                 current = down
             return pyr
-        
+
         pyr_logit = lap_pyramid(x = logit, kernel = gauss_filter, max_levels = 5)
         pyr_target = lap_pyramid(x = target, kernel = gauss_filter, max_levels = 5)
         if weight is not None:

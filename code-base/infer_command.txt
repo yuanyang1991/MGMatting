@@ -1,0 +1,10 @@
+C:\Users\a\.conda\envs\MGMMatthing\python.exe
+C:\Users\a\workspace\work_matting\MGMatting\code-base\infer.py
+--config C:\Users\a\workspace\work_matting\MGMatting\code-base\config\MGMatting-DIM-100k.toml
+--checkpoint  C:\Users\a\workspace\work_matting\MGMatting\code-base\checkpoints\MGMatting_DIM_100k\latest_model.pth
+--image-dir  C:\Users\a\dataset\matting\aim_500\original\
+--mask-dir C:\Users\a\dataset\matting\aim_500\trimap\
+--image-ext .jpg
+--mask-ext .png
+--output C:\Users\a\dataset\matting\aim_500\output\mgmatting\
+--post-process

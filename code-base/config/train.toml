@@ -1,0 +1,61 @@
+# Refer to utils/config.py for definition and options.
+
+version = "MGMatting_DIM_100k"
+dist = true
+
+[model]
+trimap_channel = 3
+mask_channel = 1
+batch_size = 10
+imagenet_pretrain = true
+imagenet_pretrain_path = "pretrain/model_best_resnet34_En_nomixup.pth"
+self_refine_width1 = 30
+self_refine_width2 = 15
+[model.arch]
+encoder = "res_shortcut_encoder_29"
+decoder = "res_shortcut_decoder_22"
+
+[train]
+total_step = 200000
+warmup_step = 8000
+val_step = 1000
+clip_grad = true
+G_lr = 1e-4
+rec_weight = 1.0
+comp_weight = 1.0
+lap_weight = 1.0
+use_instance_wise = false
+# Uncomment to resume training
+#resume_checkpoint = "best_model"
+#reset_lr = false
+
+
+[data]
+train_fg = "data/Training_set/Adobe_licensed_images/fg_copy"
+train_alpha = "data/Training_set/Adobe_licensed_images/alpha_copy"
+train_bg = "C:/Users/a/dataset/matting/train2017"
+test_merged = "data/Test_set/Adobe_licensed_images/merged/"
+test_alpha = "data/Test_set/Adobe_licensed_images/alpha_copy/"
+test_trimap = "data/Test_set/Adobe_licensed_images/trimaps/"
+train_alpha_ext = ".jpg"
+train_fg_ext = ".jpg"
+train_bg_ext = ".jpg"
+test_alpha_ext = ".png"
+test_merged_ext = ".png"
+test_triamp_ext = ".png"
+workers = 4
+crop_size = 512
+cutmask_prob = 0.25
+augmentation = true
+random_interp = true
+real_world_aug = false
+
+[log]
+tensorboard_path = "./logs/tensorboard"
+tensorboard_step = 100
+tensorboard_image_step = 1000
+logging_path = "./logs/stdout"
+logging_step = 10
+logging_level = "INFO"
+checkpoint_path = "./checkpoints"
+checkpoint_step = 1000
